@@ -71,6 +71,10 @@ void Error_Handler(void);
 #define MOT_L_IN1_GPIO_Port GPIOA
 #define MOT_L_IN2_Pin GPIO_PIN_9
 #define MOT_L_IN2_GPIO_Port GPIOA
+#define MOT_R_IN1_Pin GPIO_PIN_10
+#define MOT_R_IN1_GPIO_Port GPIOA
+#define MOT_R_IN2_Pin GPIO_PIN_11
+#define MOT_R_IN2_GPIO_Port GPIOA
 #define TCK_Pin GPIO_PIN_14
 #define TCK_GPIO_Port GPIOA
 #define SWO_Pin GPIO_PIN_3

@@ -78,6 +78,24 @@ void driveLeft(int speed){
 		__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_2, 0); // LOW on IN2
 	}
 }
+
+void driveRight(int speed){
+	// assume speed has already been scaled from 0-1000
+	if (speed > 0){
+		// if speed is positive, drive forward
+		__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_3, speed); // PWM on IN1
+		__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 0); // LOW on IN2
+	} else if (speed < 0) {
+		// if speed is negative, drive backward
+		__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_3, 0); // LOW on IN1
+		__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, -speed); // PWM on IN2
+
+	} else {
+		// speed is 0, turn motor off
+		__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_3, 0); // LOW on IN1
+		__HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 0); // LOW on IN2
+	}
+}
 /* USER CODE END 0 */
 
 /**
@@ -114,6 +132,8 @@ int main(void)
   /* USER CODE BEGIN 2 */
   HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
   HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_2);
+  HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_3);
+  HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -248,6 +268,14 @@ static void MX_TIM1_Init(void)
     Error_Handler();
   }
   if (HAL_TIM_PWM_ConfigChannel(&htim1, &sConfigOC, TIM_CHANNEL_2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_TIM_PWM_ConfigChannel(&htim1, &sConfigOC, TIM_CHANNEL_3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_TIM_PWM_ConfigChannel(&htim1, &sConfigOC, TIM_CHANNEL_4) != HAL_OK)
   {
     Error_Handler();
   }
