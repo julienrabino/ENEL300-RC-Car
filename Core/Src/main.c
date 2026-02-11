@@ -21,11 +21,13 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include <string.h>
 
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
+#define CONFIGURE_HC05 0   // 1 = AT mode, 0 = Data mode
 
 /* USER CODE END PTD */
 
@@ -60,6 +62,26 @@ static void MX_TIM1_Init(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
+void configureHC05(){
+	char resp[50] = {0};
+
+
+	// set car as "slave"
+	char cmd2[] = "AT+ROLE=0\r\n";
+	HAL_UART_Transmit(&huart2, (uint8_t*)cmd2, strlen(cmd2), HAL_MAX_DELAY);
+	HAL_UART_Receive(&huart2, (uint8_t*)resp, 4, HAL_MAX_DELAY);
+	HAL_Delay(500);
+
+
+	// set data mode baud rate = 9600
+	char cmd4[] = "AT+UART=9600,0,0\r\n";
+	HAL_UART_Transmit(&huart2, (uint8_t*)cmd4, strlen(cmd4), HAL_MAX_DELAY);
+	HAL_UART_Receive(&huart2, (uint8_t*)resp, 10, HAL_MAX_DELAY);
+	HAL_Delay(500);
+
+
+
+}
 
 void driveLeft(int speed){
 	// assume speed has already been scaled from 0-1000
@@ -106,7 +128,12 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
+# if CONFIGURE_HC05
+	configureHC05();
 
+	// important: after running this ONCE, change CONFIGURE_HC05 to 0 and also the baud rate to 9600.
+	while (1){} // stop execution so normal car code doesn't run
+#endif
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -155,6 +182,16 @@ int main(void)
 	  HAL_Delay(2000);
 
 
+
+#if 0
+
+	  just some notes
+	  - have controller send a number between 0 to 255
+	  - if 0 < number < 127, drive left
+	  - if 129 < number < 255, drive right
+	  - if number == 128, forward
+	  lol idk if this will actually work
+#endif
 
     /* USER CODE END WHILE */
 
@@ -313,7 +350,7 @@ static void MX_USART2_UART_Init(void)
 
   /* USER CODE END USART2_Init 1 */
   huart2.Instance = USART2;
-  huart2.Init.BaudRate = 115200;
+  huart2.Init.BaudRate = 38400;
   huart2.Init.WordLength = UART_WORDLENGTH_8B;
   huart2.Init.StopBits = UART_STOPBITS_1;
   huart2.Init.Parity = UART_PARITY_NONE;
