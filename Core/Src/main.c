@@ -174,15 +174,15 @@ int main(void)
 
 	  // code to just test forward/backward drive on one motor
 
-	  driveLeft(800);
+	  driveLeft(1000);
 
-	  HAL_Delay(2000);
+	  HAL_Delay(5000);
 
-	  driveLeft(-800);
-	  HAL_Delay(2000);
+	  driveLeft(-1000);
+	  HAL_Delay(5000);
 
 	  driveLeft(0);
-	  HAL_Delay(2000);
+	  HAL_Delay(5000);
 
 
 
@@ -271,9 +271,9 @@ static void MX_TIM1_Init(void)
 
   /* USER CODE END TIM1_Init 1 */
   htim1.Instance = TIM1;
-  htim1.Init.Prescaler = 179;
+  htim1.Init.Prescaler = 359;
   htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim1.Init.Period = 999;
+  htim1.Init.Period = 1999;
   htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim1.Init.RepetitionCounter = 0;
   htim1.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
