@@ -85,7 +85,7 @@ void configureHC05(){
 
 
 void driveLeft(int speed){
-	// assume speed has already been scaled from 0-1000
+	// assume speed has already been scaled from 0-1999
 
     if (speed > 0)
     {
@@ -96,6 +96,25 @@ void driveLeft(int speed){
     {
         HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0, GPIO_PIN_SET);   // DIR = 1 (reverse)
         __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, -speed);
+    }
+    else
+    {
+        __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, 0);      // brake
+    }
+}
+
+void driveRight(int speed){
+	// assume speed has already been scaled from 0-1999
+
+    if (speed > 0)
+    {
+        HAL_GPIO_WritePin(GPIOB, GPIO_PIN_1, GPIO_PIN_SET);  // DIR = 1 (forward)
+        __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_2, speed);  // PWM duty
+    }
+    else if (speed < 0)
+    {
+        HAL_GPIO_WritePin(GPIOB, GPIO_PIN_1, GPIO_PIN_RESET);   // DIR = 0 (reverse)
+        __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_2, -speed);
     }
     else
     {
@@ -307,6 +326,10 @@ static void MX_TIM1_Init(void)
   {
     Error_Handler();
   }
+  if (HAL_TIM_PWM_ConfigChannel(&htim1, &sConfigOC, TIM_CHANNEL_2) != HAL_OK)
+  {
+    Error_Handler();
+  }
   sBreakDeadTimeConfig.OffStateRunMode = TIM_OSSR_DISABLE;
   sBreakDeadTimeConfig.OffStateIDLEMode = TIM_OSSI_DISABLE;
   sBreakDeadTimeConfig.LockLevel = TIM_LOCKLEVEL_OFF;
@@ -379,7 +402,7 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0|GPIO_PIN_1, GPIO_PIN_RESET);
 
   /*Configure GPIO pin : B1_Pin */
   GPIO_InitStruct.Pin = B1_Pin;
@@ -394,8 +417,8 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(LD2_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : PB0 */
-  GPIO_InitStruct.Pin = GPIO_PIN_0;
+  /*Configure GPIO pins : PB0 PB1 */
+  GPIO_InitStruct.Pin = GPIO_PIN_0|GPIO_PIN_1;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
