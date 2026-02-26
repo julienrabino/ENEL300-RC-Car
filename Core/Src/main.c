@@ -22,7 +22,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include <string.h>
-
+#include <stdio.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -63,6 +63,13 @@ static void MX_TIM2_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+uint32_t echo_start = 0;
+uint32_t echo_end = 0;
+uint8_t last_edge = 0;
+uint32_t time_diff = 0;
+uint8_t echo_measured = 0; // flag for determining if distance sensing done
+float distance_cm = 0;
+
 
 void triggerDistanceSensing(){
     HAL_GPIO_WritePin(TRIG_GPIO_Port, TRIG_Pin, GPIO_PIN_SET);
@@ -191,7 +198,7 @@ int main(void)
   MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
   HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
-
+  HAL_TIM_IC_Start_IT(&htim2, TIM_CHANNEL_1);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -200,8 +207,19 @@ int main(void)
   {
 
 
-	  // code to just test forward/backward drive on one motor
+	  // testing distance sensor
+	  triggerDistanceSensing();
+	  if (echo_measured){
+		  echo_measured = 0; // reset flag
+		  distance_cm  = time_diff / 58;
+	  }
 
+
+	  uint32_t distance_mm = (int)(distance_cm * 10);
+
+	  printf("Distance: %d mm\n", distance_mm);
+# if 0
+	  // test drive
 	  driveLeft(1000);
 
 	  HAL_Delay(5000);
@@ -212,17 +230,10 @@ int main(void)
 	  driveLeft(0);
 	  HAL_Delay(5000);
 
-
-
-#if 0
-
-	  just some notes
-	  - have controller send a number between 0 to 255
-	  - if 0 < number < 127, drive left
-	  - if 129 < number < 255, drive right
-	  - if number == 128, forward
-	  lol idk if this will actually work
 #endif
+
+
+
 
     /* USER CODE END WHILE */
 
@@ -487,6 +498,29 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE BEGIN 4 */
 
+void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim){
+    if (htim->Instance == TIM2 && htim->Channel == HAL_TIM_ACTIVE_CHANNEL_1) {
+
+    	// ECHO rising edge
+    	if (last_edge == 0) {
+    		echo_start = HAL_TIM_ReadCapturedValue(htim, TIM_CHANNEL_1);
+    		last_edge = 1;
+
+    	} else {
+    		echo_end = HAL_TIM_ReadCapturedValue(htim, TIM_CHANNEL_1);
+
+    		if (echo_end < echo_start){
+    			time_diff = htim->Init.Period - echo_start + echo_end;
+    		} else {
+    			time_diff = echo_end - echo_start;
+    		}
+
+    		last_edge = 0;
+    		echo_measured = 1;
+    	}
+    }
+
+}
 /* USER CODE END 4 */
 
 /**
