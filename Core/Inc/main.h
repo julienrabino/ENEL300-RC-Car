@@ -65,10 +65,6 @@ void Error_Handler(void);
 #define ECHO_GPIO_Port GPIOA
 #define TRIG_Pin GPIO_PIN_1
 #define TRIG_GPIO_Port GPIOA
-#define HC05_TX_Pin GPIO_PIN_2
-#define HC05_TX_GPIO_Port GPIOA
-#define HC05_RX_Pin GPIO_PIN_3
-#define HC05_RX_GPIO_Port GPIOA
 #define LD2_Pin GPIO_PIN_5
 #define LD2_GPIO_Port GPIOA
 #define LEFT_DIR_Pin GPIO_PIN_0

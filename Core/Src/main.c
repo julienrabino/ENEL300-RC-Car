@@ -28,6 +28,7 @@
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
 #define CONFIGURE_HC05 0   // 1 = AT mode, 0 = Data mode
+#define CMD_LEN 24
 
 /* USER CODE END PTD */
 
@@ -45,6 +46,7 @@
 TIM_HandleTypeDef htim1;
 TIM_HandleTypeDef htim2;
 
+UART_HandleTypeDef huart1;
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
@@ -54,9 +56,10 @@ UART_HandleTypeDef huart2;
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
-static void MX_USART2_UART_Init(void);
 static void MX_TIM1_Init(void);
 static void MX_TIM2_Init(void);
+static void MX_USART1_UART_Init(void);
+static void MX_USART2_UART_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -69,6 +72,10 @@ uint8_t last_edge = 0;
 uint32_t time_diff = 0;
 uint8_t echo_measured = 0; // flag for determining if distance sensing done
 float distance_cm = 0;
+volatile uint8_t rx_byte = 0;
+volatile uint8_t cmd_buffer [CMD_LEN];
+volatile uint8_t cmd_idx = 0; // incremented in ISR
+volatile uint8_t processed_idx = 0;  // main loop processes from this idx
 
 
 void triggerDistanceSensing(){
@@ -81,17 +88,18 @@ void configureHC05(){
 	char resp[50] = {0};
 
 
+	huart1.Init.BaudRate = 38400;
 	// set car as "slave"
 	char cmd2[] = "AT+ROLE=0\r\n";
-	HAL_UART_Transmit(&huart2, (uint8_t*)cmd2, strlen(cmd2), HAL_MAX_DELAY);
-	HAL_UART_Receive(&huart2, (uint8_t*)resp, 4, HAL_MAX_DELAY);
+	HAL_UART_Transmit(&huart1, (uint8_t*)cmd2, strlen(cmd2), HAL_MAX_DELAY);
+	HAL_UART_Receive(&huart1, (uint8_t*)resp, 4, HAL_MAX_DELAY);
 	HAL_Delay(500);
 
 
 	// set data mode baud rate = 9600
 	char cmd4[] = "AT+UART=9600,0,0\r\n";
-	HAL_UART_Transmit(&huart2, (uint8_t*)cmd4, strlen(cmd4), HAL_MAX_DELAY);
-	HAL_UART_Receive(&huart2, (uint8_t*)resp, 10, HAL_MAX_DELAY);
+	HAL_UART_Transmit(&huart1, (uint8_t*)cmd4, strlen(cmd4), HAL_MAX_DELAY);
+	HAL_UART_Receive(&huart1, (uint8_t*)resp, 10, HAL_MAX_DELAY);
 	HAL_Delay(500);
 
 
@@ -167,12 +175,9 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
-# if CONFIGURE_HC05
-	configureHC05();
 
-	// important: after running this ONCE, change CONFIGURE_HC05 to 0 and also the baud rate to 9600.
-	while (1){} // stop execution so normal car code doesn't run
-#endif
+
+
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -193,16 +198,26 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
-  MX_USART2_UART_Init();
   MX_TIM1_Init();
   MX_TIM2_Init();
+  MX_USART1_UART_Init();
+  MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
   HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
   HAL_TIM_IC_Start_IT(&htim2, TIM_CHANNEL_1);
+  HAL_UART_Receive_IT(&huart1, &rx_byte, 1);
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+
+# if CONFIGURE_HC05
+	configureHC05();
+
+	// important: after running this ONCE, change CONFIGURE_HC05 to 0 and also the baud rate to 9600.
+	while (1){} // stop execution so normal car code doesn't run
+#endif
+
   while (1)
   {
 
@@ -225,6 +240,7 @@ int main(void)
 	  printf("Distance: %d mm\n\r", distance_mm);
 
 #endif
+
 # if 0
 	  // test drive
 	  driveLeft(1000);
@@ -424,6 +440,39 @@ static void MX_TIM2_Init(void)
 }
 
 /**
+  * @brief USART1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_USART1_UART_Init(void)
+{
+
+  /* USER CODE BEGIN USART1_Init 0 */
+
+  /* USER CODE END USART1_Init 0 */
+
+  /* USER CODE BEGIN USART1_Init 1 */
+
+  /* USER CODE END USART1_Init 1 */
+  huart1.Instance = USART1;
+  huart1.Init.BaudRate = 38400;
+  huart1.Init.WordLength = UART_WORDLENGTH_8B;
+  huart1.Init.StopBits = UART_STOPBITS_1;
+  huart1.Init.Parity = UART_PARITY_NONE;
+  huart1.Init.Mode = UART_MODE_TX_RX;
+  huart1.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart1.Init.OverSampling = UART_OVERSAMPLING_16;
+  if (HAL_UART_Init(&huart1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN USART1_Init 2 */
+
+  /* USER CODE END USART1_Init 2 */
+
+}
+
+/**
   * @brief USART2 Initialization Function
   * @param None
   * @retval None
@@ -508,6 +557,16 @@ int __io_putchar(int ch)
 {
   HAL_UART_Transmit(&huart2, (uint8_t *)&ch, 1, HAL_MAX_DELAY);
   return ch;
+}
+
+void HAL_UART_RxCpltCallback( UART_HandleTypeDef *huart){
+	if(huart->Instance == USART1){
+		cmd_buffer[cmd_idx++] = rx_byte;
+		if (cmd_idx == CMD_LEN) cmd_idx = 0;
+		HAL_UART_Receive_IT(&huart1, &rx_byte, 1);
+
+
+
 }
 void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim){
     if (htim->Instance == TIM2 && htim->Channel == HAL_TIM_ACTIVE_CHANNEL_1) {
