@@ -207,6 +207,11 @@ int main(void)
   {
 
 
+	  HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
+
+#if 1
+	  HAL_Delay(1000);
+
 	  // testing distance sensor
 	  triggerDistanceSensing();
 	  if (echo_measured){
@@ -217,7 +222,9 @@ int main(void)
 
 	  uint32_t distance_mm = (int)(distance_cm * 10);
 
-	  printf("Distance: %d mm\n", distance_mm);
+	  printf("Distance: %d mm\n\r", distance_mm);
+
+#endif
 # if 0
 	  // test drive
 	  driveLeft(1000);
@@ -497,7 +504,11 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-
+int __io_putchar(int ch)
+{
+  HAL_UART_Transmit(&huart2, (uint8_t *)&ch, 1, HAL_MAX_DELAY);
+  return ch;
+}
 void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim){
     if (htim->Instance == TIM2 && htim->Channel == HAL_TIM_ACTIVE_CHANNEL_1) {
 
