@@ -28,7 +28,16 @@
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
 #define CONFIGURE_HC05 0   // 1 = AT mode, 0 = Data mode
-#define CMD_LEN 24
+#define BUF_LEN 12 //  length of command buffer, set at 12 so that it can hold 3 sets of commands at once
+#define CMD_LEN 4 /* length of a command from the remote.
+					--- FORMAT in BYTES ---
+					Byte 0: Left Motor Direction (0 for reverse, 1 for forward)
+					Byte 1: Left Motor Speed
+					Byte 2: Right Motor Direction (" ")
+					Byte 3: Right Motor Speed
+
+
+				  */
 
 /* USER CODE END PTD */
 
@@ -73,16 +82,19 @@ uint32_t time_diff = 0;
 uint8_t echo_measured = 0; // flag for determining if distance sensing done
 float distance_cm = 0;
 volatile uint8_t rx_byte = 0;
-volatile uint8_t cmd_buffer [CMD_LEN];
+volatile uint8_t cmd_buffer [BUF_LEN];
 volatile uint8_t cmd_idx = 0; // incremented in ISR
-volatile uint8_t processed_idx = 0;  // main loop processes from this idx
-
+volatile uint8_t process_idx = 0;  // main loop processes from this idx
 
 void triggerDistanceSensing(){
     HAL_GPIO_WritePin(TRIG_GPIO_Port, TRIG_Pin, GPIO_PIN_SET);
     for(volatile int i = 0; i < 280; i++); // delay 10 us
     HAL_GPIO_WritePin(TRIG_GPIO_Port, TRIG_Pin, GPIO_PIN_RESET);
 
+}
+
+void processCommand(uint8_t process_idx){
+	// call drive left and drive right
 }
 void configureHC05(){
 	char resp[50] = {0};
@@ -221,9 +233,26 @@ int main(void)
   while (1)
   {
 
+	  uint8_t idx_diff = 0;
 
 	  HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
+	  // if there is a command ready to be processed
+	  if (cmd_idx < process_idx){
+		  idx_diff = (BUF_LEN - process_idx) + cmd_idx;
 
+	  } else if (cmd_idx > process_idx){
+		  idx_diff = cmd_idx - process_idx;
+	  }
+
+
+	  if (idx_diff >= CMD_LEN){
+		  processCommand(process_idx);
+		  process_idx += CMD_LEN;
+		  if (process_idx >= BUF_LEN) process_idx = 0; // wrap pointer around
+
+
+
+	  }
 #if 1
 	  HAL_Delay(1000);
 
@@ -562,11 +591,10 @@ int __io_putchar(int ch)
 void HAL_UART_RxCpltCallback( UART_HandleTypeDef *huart){
 	if(huart->Instance == USART1){
 		cmd_buffer[cmd_idx++] = rx_byte;
-		if (cmd_idx == CMD_LEN) cmd_idx = 0;
+		if (cmd_idx == CMD_LEN) cmd_idx = 0; // wrap around
 		HAL_UART_Receive_IT(&huart1, &rx_byte, 1);
 
-
-
+	}
 }
 void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim){
     if (htim->Instance == TIM2 && htim->Channel == HAL_TIM_ACTIVE_CHANNEL_1) {
