@@ -81,6 +81,7 @@ uint8_t last_edge = 0;
 uint32_t time_diff = 0;
 uint8_t echo_measured = 0; // flag for determining if distance sensing done
 float distance_cm = 0;
+uint32_t last_dist_time = 0;
 volatile uint8_t rx_byte = 0;
 volatile uint8_t cmd_buffer [BUF_LEN];
 volatile uint8_t cmd_idx = 0; // incremented in ISR
@@ -92,33 +93,6 @@ void triggerDistanceSensing(){
     HAL_GPIO_WritePin(TRIG_GPIO_Port, TRIG_Pin, GPIO_PIN_RESET);
 
 }
-
-void processCommand(uint8_t process_idx){
-	// call drive left and drive right
-}
-void configureHC05(){
-	char resp[50] = {0};
-
-
-	huart1.Init.BaudRate = 38400;
-	// set car as "slave"
-	char cmd2[] = "AT+ROLE=0\r\n";
-	HAL_UART_Transmit(&huart1, (uint8_t*)cmd2, strlen(cmd2), HAL_MAX_DELAY);
-	HAL_UART_Receive(&huart1, (uint8_t*)resp, 4, HAL_MAX_DELAY);
-	HAL_Delay(500);
-
-
-	// set data mode baud rate = 9600
-	char cmd4[] = "AT+UART=9600,0,0\r\n";
-	HAL_UART_Transmit(&huart1, (uint8_t*)cmd4, strlen(cmd4), HAL_MAX_DELAY);
-	HAL_UART_Receive(&huart1, (uint8_t*)resp, 10, HAL_MAX_DELAY);
-	HAL_Delay(500);
-
-
-
-}
-
-
 void driveLeft(int speed){
 	// assume speed has already been scaled from 0-1999
 
@@ -156,6 +130,62 @@ void driveRight(int speed){
         __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_2, 0);      // brake
     }
 }
+
+
+void processCommand(uint8_t start_idx){
+	// call drive left and drive right
+	uint8_t process_idx = start_idx;
+
+
+
+	uint8_t raw_data [CMD_LEN];
+
+	for (uint8_t i = 0; i < CMD_LEN;  i++){
+		raw_data[i] = cmd_buffer[(process_idx % BUF_LEN)];
+		process_idx ++;
+
+	}
+
+	uint8_t left_dir = raw_data[0];
+	int left_speed = (int)raw_data[1];
+	uint8_t right_dir = raw_data[2];
+	int right_speed = (int)raw_data[3];
+
+	int scaled_left = (left_speed * 1999) / 255;
+	int scaled_right = (right_speed * 1999) / 255;
+
+
+	scaled_left = (left_dir == 1 ? scaled_left : - scaled_left);
+	scaled_right = (right_dir == 1? scaled_right: - scaled_right);
+
+	driveLeft(scaled_left);
+	driveRight(scaled_right);
+
+}
+
+
+
+void configureHC05(){
+	char resp[50] = {0};
+
+
+	// set car as "slave"
+	char cmd2[] = "AT+ROLE=0\r\n";
+	HAL_UART_Transmit(&huart1, (uint8_t*)cmd2, strlen(cmd2), HAL_MAX_DELAY);
+	HAL_UART_Receive(&huart1, (uint8_t*)resp, 4, HAL_MAX_DELAY);
+	HAL_Delay(500);
+
+
+	// set data mode baud rate = 9600
+	char cmd4[] = "AT+UART=9600,0,0\r\n";
+	HAL_UART_Transmit(&huart1, (uint8_t*)cmd4, strlen(cmd4), HAL_MAX_DELAY);
+	HAL_UART_Receive(&huart1, (uint8_t*)resp, 10, HAL_MAX_DELAY);
+	HAL_Delay(500);
+
+
+
+}
+
 
 # if 0
 void driveRight(int speed){
@@ -217,7 +247,7 @@ int main(void)
   /* USER CODE BEGIN 2 */
   HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
   HAL_TIM_IC_Start_IT(&htim2, TIM_CHANNEL_1);
-  HAL_UART_Receive_IT(&huart1, &rx_byte, 1);
+  HAL_UART_Receive_IT(&huart1, (uint8_t *) &rx_byte, 1);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -235,7 +265,7 @@ int main(void)
 
 	  uint8_t idx_diff = 0;
 
-	  HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
+	  //HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
 	  // if there is a command ready to be processed
 	  if (cmd_idx < process_idx){
 		  idx_diff = (BUF_LEN - process_idx) + cmd_idx;
@@ -254,10 +284,13 @@ int main(void)
 
 	  }
 #if 1
-	  HAL_Delay(1000);
 
-	  // testing distance sensor
-	  triggerDistanceSensing();
+	  // trigger distance sensor every 2 seconds
+	  if (HAL_GetTick() - last_dist_time >= 2000){
+		  triggerDistanceSensing();
+		  last_dist_time = HAL_GetTick();
+
+	  }
 	  if (echo_measured){
 		  echo_measured = 0; // reset flag
 		  distance_cm  = time_diff / 58;
@@ -591,7 +624,7 @@ int __io_putchar(int ch)
 void HAL_UART_RxCpltCallback( UART_HandleTypeDef *huart){
 	if(huart->Instance == USART1){
 		cmd_buffer[cmd_idx++] = rx_byte;
-		if (cmd_idx == CMD_LEN) cmd_idx = 0; // wrap around
+		if (cmd_idx == BUF_LEN) cmd_idx = 0; // wrap around
 		HAL_UART_Receive_IT(&huart1, &rx_byte, 1);
 
 	}
