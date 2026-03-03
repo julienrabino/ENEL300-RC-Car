@@ -52,6 +52,8 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
+ADC_HandleTypeDef hadc1;
+
 TIM_HandleTypeDef htim1;
 TIM_HandleTypeDef htim2;
 
@@ -69,12 +71,33 @@ static void MX_TIM1_Init(void);
 static void MX_TIM2_Init(void);
 static void MX_USART1_UART_Init(void);
 static void MX_USART2_UART_Init(void);
+static void MX_ADC1_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+// ===== METAL DETECTOR DEFINES =====
+#define NPULSE 12
+#define NMEAS 256
+#define METAL_THRESHOLD 50  // IMPORTANT tweak this accordingly for metal detector ***********************
+
+#define METAL_PULSE_GPIO_Port GPIOA
+#define METAL_PULSE_Pin GPIO_PIN_7
+
+#define METAL_LED_GPIO_Port GPIOA
+#define METAL_LED_Pin LD2_Pin
+
+#define METAL_OUT_GPIO_Port GPIOB
+#define METAL_OUT_Pin GPIO_PIN_2
+
+long int sumsum = 0;
+long int skip = 0;
+long int diff = 0;
+long int flash_period = 0;
+uint32_t prev_flash = 0;
+
 uint32_t echo_start = 0;
 uint32_t echo_end = 0;
 uint8_t last_edge = 0;
@@ -181,8 +204,85 @@ void configureHC05(){
 	HAL_UART_Transmit(&huart1, (uint8_t*)cmd4, strlen(cmd4), HAL_MAX_DELAY);
 	HAL_UART_Receive(&huart1, (uint8_t*)resp, 10, HAL_MAX_DELAY);
 	HAL_Delay(500);
+}
 
 
+uint16_t readADC(void) {
+
+	HAL_ADC_Start(&hadc1);
+	HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY);
+	uint16_t val = HAL_ADC_GetValue(&hadc1);
+	HAL_ADC_Stop(&hadc1);
+	return val;
+}
+
+void runMetalDetector(void) {
+
+    int minval = 4095;
+    int maxval = 0;
+    uint32_t sum = 0;
+
+    for (int imeas = 0; imeas < NMEAS + 2; imeas++) {
+        HAL_GPIO_WritePin(METAL_PULSE_GPIO_Port, METAL_PULSE_Pin, GPIO_PIN_RESET);
+        HAL_Delay(1);
+
+        for (int ipulse = 0; ipulse < NPULSE; ipulse++) {
+            HAL_GPIO_WritePin(METAL_PULSE_GPIO_Port, METAL_PULSE_Pin, GPIO_PIN_SET);
+            for(volatile int i=0;i<20;i++);
+            HAL_GPIO_WritePin(METAL_PULSE_GPIO_Port, METAL_PULSE_Pin, GPIO_PIN_RESET);
+            for(volatile int i=0;i<20;i++);
+        }
+
+        int val = readADC();
+
+        if (val < minval) minval = val;
+        if (val > maxval) maxval = val;
+
+        sum += val;
+    }
+
+    sum -= minval;
+    sum -= maxval;
+
+    if (sumsum == 0)
+        sumsum = sum << 6;
+
+    long int avgsum = (sumsum + 32) >> 6;
+    diff = sum - avgsum;
+
+    if (abs(diff) < avgsum >> 10) {
+        sumsum = sumsum + sum - avgsum;
+        skip = 0;
+    }
+    else {
+        skip++;
+    }
+
+    if (skip > 64) {
+        sumsum = sum << 6;
+        skip = 0;
+    }
+
+    if (diff == 0) flash_period = 1000000;
+    else flash_period = avgsum / (2 * abs(diff));
+
+    uint32_t timestamp = HAL_GetTick();
+
+    if (flash_period > 1000) {
+        HAL_GPIO_WritePin(METAL_LED_GPIO_Port, METAL_LED_Pin, GPIO_PIN_RESET);
+    }
+    else {
+        if (timestamp - prev_flash >= flash_period) {
+            HAL_GPIO_TogglePin(METAL_LED_GPIO_Port, METAL_LED_Pin);
+            prev_flash = timestamp;
+        }
+    }
+
+    if (abs(diff) > METAL_THRESHOLD) {
+        HAL_GPIO_WritePin(METAL_OUT_GPIO_Port, METAL_OUT_Pin, GPIO_PIN_SET);
+    } else {
+        HAL_GPIO_WritePin(METAL_OUT_GPIO_Port, METAL_OUT_Pin, GPIO_PIN_RESET);
+    }
 
 }
 
@@ -244,6 +344,7 @@ int main(void)
   MX_TIM2_Init();
   MX_USART1_UART_Init();
   MX_USART2_UART_Init();
+  MX_ADC1_Init();
   /* USER CODE BEGIN 2 */
   HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
   HAL_TIM_IC_Start_IT(&htim2, TIM_CHANNEL_1);
@@ -281,7 +382,14 @@ int main(void)
 		  if (process_idx >= BUF_LEN) process_idx = 0; // wrap pointer around
 
 
+	  }
 
+	  static uint32_t last_metal_time = 0;
+
+	  if (HAL_GetTick() - last_metal_time > 50) // 50 ms delays
+	  {
+	      runMetalDetector();
+	      last_metal_time = HAL_GetTick();
 	  }
 #if 1
 
@@ -372,6 +480,58 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
+}
+
+/**
+  * @brief ADC1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_ADC1_Init(void)
+{
+
+  /* USER CODE BEGIN ADC1_Init 0 */
+
+  /* USER CODE END ADC1_Init 0 */
+
+  ADC_ChannelConfTypeDef sConfig = {0};
+
+  /* USER CODE BEGIN ADC1_Init 1 */
+
+  /* USER CODE END ADC1_Init 1 */
+
+  /** Configure the global features of the ADC (Clock, Resolution, Data Alignment and number of conversion)
+  */
+  hadc1.Instance = ADC1;
+  hadc1.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV4;
+  hadc1.Init.Resolution = ADC_RESOLUTION_12B;
+  hadc1.Init.ScanConvMode = DISABLE;
+  hadc1.Init.ContinuousConvMode = DISABLE;
+  hadc1.Init.DiscontinuousConvMode = DISABLE;
+  hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
+  hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
+  hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
+  hadc1.Init.NbrOfConversion = 1;
+  hadc1.Init.DMAContinuousRequests = DISABLE;
+  hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
+  if (HAL_ADC_Init(&hadc1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
+  */
+  sConfig.Channel = ADC_CHANNEL_6;
+  sConfig.Rank = 1;
+  sConfig.SamplingTime = ADC_SAMPLETIME_84CYCLES;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN ADC1_Init 2 */
+
+  /* USER CODE END ADC1_Init 2 */
+
 }
 
 /**
@@ -585,10 +745,10 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOA, TRIG_Pin|LD2_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOA, TRIG_Pin|LD2_Pin|metal_pulse_out_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, LEFT_DIR_Pin|RIGHT_DIR_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOB, LEFT_DIR_Pin|RIGHT_DIR_Pin|GPIO_PIN_2, GPIO_PIN_RESET);
 
   /*Configure GPIO pin : B1_Pin */
   GPIO_InitStruct.Pin = B1_Pin;
@@ -603,14 +763,22 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : LEFT_DIR_Pin RIGHT_DIR_Pin */
-  GPIO_InitStruct.Pin = LEFT_DIR_Pin|RIGHT_DIR_Pin;
+  /*Configure GPIO pin : metal_pulse_out_Pin */
+  GPIO_InitStruct.Pin = metal_pulse_out_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+  HAL_GPIO_Init(metal_pulse_out_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : LEFT_DIR_Pin RIGHT_DIR_Pin PB2 */
+  GPIO_InitStruct.Pin = LEFT_DIR_Pin|RIGHT_DIR_Pin|GPIO_PIN_2;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
 /* USER CODE BEGIN MX_GPIO_Init_2 */
+  HAL_GPIO_WritePin(metal_pulse_out_GPIO_Port, metal_pulse_out_Pin, GPIO_PIN_RESET);
 /* USER CODE END MX_GPIO_Init_2 */
 }
 
