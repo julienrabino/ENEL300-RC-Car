@@ -71,6 +71,8 @@ void Error_Handler(void);
 #define LEFT_DIR_GPIO_Port GPIOB
 #define RIGHT_DIR_Pin GPIO_PIN_1
 #define RIGHT_DIR_GPIO_Port GPIOB
+#define HC05_EN_Pin GPIO_PIN_7
+#define HC05_EN_GPIO_Port GPIOC
 #define LEFT_PWM_Pin GPIO_PIN_8
 #define LEFT_PWM_GPIO_Port GPIOA
 #define RIGHT_PWM_Pin GPIO_PIN_9

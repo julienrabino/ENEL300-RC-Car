@@ -27,7 +27,7 @@
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-#define CONFIGURE_HC05 0   // 1 = AT mode, 0 = Data mode
+#define CONFIGURE_HC05 0 // 1 = AT mode, 0 = Data mode
 #define BUF_LEN 12 //  length of command buffer, set at 12 so that it can hold 3 sets of commands at once
 #define CMD_LEN 4 /* length of a command from the remote.
 					--- FORMAT in BYTES ---
@@ -35,7 +35,6 @@
 					Byte 1: Left Motor Speed
 					Byte 2: Right Motor Direction (" ")
 					Byte 3: Right Motor Speed
-
 
 				  */
 
@@ -168,19 +167,34 @@ void processCommand(uint8_t start_idx){
 void configureHC05(){
 	char resp[50] = {0};
 
-
+	HAL_StatusTypeDef status;
 	// set car as "slave"
 	char cmd2[] = "AT+ROLE=0\r\n";
 	HAL_UART_Transmit(&huart1, (uint8_t*)cmd2, strlen(cmd2), HAL_MAX_DELAY);
-	HAL_UART_Receive(&huart1, (uint8_t*)resp, 4, HAL_MAX_DELAY);
+	HAL_UART_Receive(&huart1, (uint8_t*)resp, sizeof(resp)-1, 500); // 500 ms timeout
+	HAL_Delay(500);
+	printf("Role Response: %s\r\n", resp); // Print the "OK"
+	memset(resp, 0, sizeof(resp));
 	HAL_Delay(500);
 
+	char cmd_pw[] = "AT+PSWD=\"1234\"\r\n";
+	HAL_UART_Transmit(&huart1, (uint8_t*)cmd_pw, strlen(cmd_pw), 1000);
+	HAL_UART_Receive(&huart1, (uint8_t*)resp, sizeof(resp)-1, 500);
+	printf("Password Response: %s\r\n", resp); // Print the "OK"
+	HAL_Delay(500);
+	memset(resp, 0, sizeof(resp));
 
 	// set data mode baud rate = 9600
 	char cmd4[] = "AT+UART=9600,0,0\r\n";
 	HAL_UART_Transmit(&huart1, (uint8_t*)cmd4, strlen(cmd4), HAL_MAX_DELAY);
-	HAL_UART_Receive(&huart1, (uint8_t*)resp, 10, HAL_MAX_DELAY);
+	HAL_UART_Receive(&huart1, (uint8_t*)resp, sizeof(resp), 200);
 	HAL_Delay(500);
+	memset(resp, 0, sizeof(resp));
+
+
+
+
+
 
 
 
@@ -247,18 +261,20 @@ int main(void)
   /* USER CODE BEGIN 2 */
   HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
   HAL_TIM_IC_Start_IT(&htim2, TIM_CHANNEL_1);
-  HAL_UART_Receive_IT(&huart1, (uint8_t *) &rx_byte, 1);
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
 
 # if CONFIGURE_HC05
-	configureHC05();
+	  HAL_GPIO_WritePin(HC05_EN_GPIO_Port, HC05_EN_Pin, GPIO_PIN_SET);  // set EN HIGH
+	  configureHC05();
+
 
 	// important: after running this ONCE, change CONFIGURE_HC05 to 0 and also the baud rate to 9600.
 	while (1){} // stop execution so normal car code doesn't run
 #endif
+   HAL_UART_Receive_IT(&huart1, (uint8_t *) &rx_byte, 1);
 
   while (1)
   {
@@ -278,12 +294,12 @@ int main(void)
 	  if (idx_diff >= CMD_LEN){
 		  processCommand(process_idx);
 		  process_idx += CMD_LEN;
-		  if (process_idx >= BUF_LEN) process_idx = 0; // wrap pointer around
+		  if (process_idx >= BUF_LEN) process_idx = process_idx % BUF_LEN; // wrap pointer around
 
 
 
 	  }
-#if 1
+#if 0
 
 	  // trigger distance sensor every 2 seconds
 	  if (HAL_GetTick() - last_dist_time >= 2000){
@@ -517,7 +533,7 @@ static void MX_USART1_UART_Init(void)
 
   /* USER CODE END USART1_Init 1 */
   huart1.Instance = USART1;
-  huart1.Init.BaudRate = 38400;
+  huart1.Init.BaudRate = 9600;
   huart1.Init.WordLength = UART_WORDLENGTH_8B;
   huart1.Init.StopBits = UART_STOPBITS_1;
   huart1.Init.Parity = UART_PARITY_NONE;
@@ -590,6 +606,9 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOB, LEFT_DIR_Pin|RIGHT_DIR_Pin, GPIO_PIN_RESET);
 
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(HC05_EN_GPIO_Port, HC05_EN_Pin, GPIO_PIN_RESET);
+
   /*Configure GPIO pin : B1_Pin */
   GPIO_InitStruct.Pin = B1_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
@@ -610,7 +629,20 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
+  /*Configure GPIO pin : HC05_EN_Pin */
+  GPIO_InitStruct.Pin = HC05_EN_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(HC05_EN_GPIO_Port, &GPIO_InitStruct);
+
 /* USER CODE BEGIN MX_GPIO_Init_2 */
+  GPIO_InitStruct.Pin = GPIO_PIN_7;
+  GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+  GPIO_InitStruct.Pull = GPIO_PULLUP; // This pulls the RX line to 3.3V
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+  GPIO_InitStruct.Alternate = GPIO_AF7_USART1;
+	HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 /* USER CODE END MX_GPIO_Init_2 */
 }
 
@@ -625,7 +657,8 @@ void HAL_UART_RxCpltCallback( UART_HandleTypeDef *huart){
 	if(huart->Instance == USART1){
 		cmd_buffer[cmd_idx++] = rx_byte;
 		if (cmd_idx == BUF_LEN) cmd_idx = 0; // wrap around
-		HAL_UART_Receive_IT(&huart1, &rx_byte, 1);
+		HAL_UART_Transmit(&huart2, (uint8_t *) &rx_byte, 1, 10);
+		HAL_UART_Receive_IT(&huart1, (uint8_t *) &rx_byte, 1);
 
 	}
 }
