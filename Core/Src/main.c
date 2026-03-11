@@ -32,9 +32,9 @@
 #define CMD_LEN 4 /* length of a command from the remote.
 					--- FORMAT in BYTES ---
 					Byte 0: Left Motor Direction (0 for reverse, 1 for forward)
-					Byte 1: Left Motor Speed
+					Byte 1: Left Motor Speed {0-255)
 					Byte 2: Right Motor Direction (" ")
-					Byte 3: Right Motor Speed
+					Byte 3: Right Motor Speed (0-255)
 
 				  */
 
@@ -301,8 +301,8 @@ int main(void)
 	  }
 #if 1
 
-	  // trigger distance sensor every 2 seconds
-	  if (HAL_GetTick() - last_dist_time >= 2000){
+	  // trigger distance sensor every 500 ms
+	  if (HAL_GetTick() - last_dist_time >= 500){
 		  triggerDistanceSensing();
 		  last_dist_time = HAL_GetTick();
 
