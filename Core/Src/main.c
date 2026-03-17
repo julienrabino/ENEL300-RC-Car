@@ -133,15 +133,15 @@ void driveRight(int speed){
 
 void processCommand(uint8_t start_idx){
 	// call drive left and drive right
-	uint8_t process_idx = start_idx;
+	uint8_t idx = start_idx;
 
 
 
 	uint8_t raw_data [CMD_LEN];
 
 	for (uint8_t i = 0; i < CMD_LEN;  i++){
-		raw_data[i] = cmd_buffer[(process_idx % BUF_LEN)];
-		process_idx ++;
+		raw_data[i] = cmd_buffer[(idx % BUF_LEN)];
+		idx ++;
 
 	}
 
@@ -287,6 +287,8 @@ int main(void)
 	  uint8_t idx_diff = 0;
 
 	  //HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
+
+
 	  // if there is a command ready to be processed
 	  if (cmd_idx < process_idx){
 		  idx_diff = (BUF_LEN - process_idx) + cmd_idx;
@@ -296,12 +298,22 @@ int main(void)
 	  }
 
 
-	  if (idx_diff >= CMD_LEN){
-		  processCommand(process_idx);
-		  process_idx += CMD_LEN;
-		  if (process_idx >= BUF_LEN) process_idx = process_idx % BUF_LEN; // wrap pointer around
+	  uint8_t safety = 0;
+	  while (idx_diff >= CMD_LEN && safety < 10){
+	      processCommand(process_idx);
 
+	      process_idx += CMD_LEN;
+	      if (process_idx >= BUF_LEN)
+	          process_idx %= BUF_LEN;
 
+	      // recompute idx_diff after consuming data
+	      if (cmd_idx >= process_idx){
+	          idx_diff = cmd_idx - process_idx;
+	      } else {
+	          idx_diff = (BUF_LEN - process_idx) + cmd_idx;
+	      }
+
+	      safety++;
 
 	  }
 #if 0
