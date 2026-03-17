@@ -158,6 +158,9 @@ void processCommand(uint8_t start_idx){
 	scaled_left = (left_dir == 1 ? scaled_left : - scaled_left);
 	scaled_right = (right_dir == 1? scaled_right: - scaled_right);
 
+	printf("Left: %d\n\r", scaled_left);
+	printf("Right: %d\n\r", scaled_right);
+
 	driveLeft(scaled_left);
 	driveRight(scaled_right);
 
@@ -685,7 +688,7 @@ void HAL_UART_RxCpltCallback( UART_HandleTypeDef *huart){
 	if(huart->Instance == USART1){
 		cmd_buffer[cmd_idx++] = rx_byte;
 		if (cmd_idx == BUF_LEN) cmd_idx = 0; // wrap around
-		HAL_UART_Transmit(&huart2, (uint8_t *) &rx_byte, 1, 10);
+		//HAL_UART_Transmit(&huart2, (uint8_t *) &rx_byte, 1, 10);
 		HAL_UART_Receive_IT(&huart1, (uint8_t *) &rx_byte, 1);
 
 	}
