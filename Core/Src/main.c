@@ -27,6 +27,7 @@
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
+#define TEST_MOTORS 1
 #define CONFIGURE_HC05 0// 1 = AT mode, 0 = Data mode
 #define BUF_LEN 12 //  length of command buffer, set at 12 so that it can hold 3 sets of commands at once
 #define CMD_LEN 4 /* length of a command from the remote.
@@ -260,6 +261,7 @@ int main(void)
   MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
   HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
+  HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_2);
   HAL_TIM_IC_Start_IT(&htim2, TIM_CHANNEL_1);
   /* USER CODE END 2 */
 
@@ -278,6 +280,20 @@ int main(void)
 
   while (1)
   {
+
+
+
+	  while(0){
+		  // move forward but turn left
+		  driveLeft(400);     // slower
+		  driveRight(1000);   // faster
+		  HAL_Delay(3000);
+
+		  // stop
+		  driveLeft(0);
+		  driveRight(0);
+		  HAL_Delay(2000);
+	  }
 
 
 	  while(0){
@@ -337,19 +353,6 @@ int main(void)
 
 #endif
 
-# if 0
-	  // test drive
-	  driveLeft(1000);
-
-	  HAL_Delay(5000);
-
-	  driveLeft(-1000);
-	  HAL_Delay(5000);
-
-	  driveLeft(0);
-	  HAL_Delay(5000);
-
-#endif
 
 
 
