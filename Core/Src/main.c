@@ -27,7 +27,7 @@
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-#define CONFIGURE_HC05 0 // 1 = AT mode, 0 = Data mode
+#define CONFIGURE_HC05 0// 1 = AT mode, 0 = Data mode
 #define BUF_LEN 12 //  length of command buffer, set at 12 so that it can hold 3 sets of commands at once
 #define CMD_LEN 4 /* length of a command from the remote.
 					--- FORMAT in BYTES ---
@@ -279,6 +279,11 @@ int main(void)
   while (1)
   {
 
+
+	  while(0){
+	      HAL_Delay(500);
+	      printf("cmd_idx = %d\n", cmd_idx);
+	  }
 	  uint8_t idx_diff = 0;
 
 	  //HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
@@ -299,7 +304,7 @@ int main(void)
 
 
 	  }
-#if 1
+#if 0
 
 	  // trigger distance sensor every 500 ms
 	  if (HAL_GetTick() - last_dist_time >= 500){
@@ -534,7 +539,7 @@ static void MX_USART1_UART_Init(void)
 
   /* USER CODE END USART1_Init 1 */
   huart1.Instance = USART1;
-  huart1.Init.BaudRate = 115200;
+  huart1.Init.BaudRate = 9600;
   huart1.Init.WordLength = UART_WORDLENGTH_8B;
   huart1.Init.StopBits = UART_STOPBITS_1;
   huart1.Init.Parity = UART_PARITY_NONE;
@@ -616,8 +621,8 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(B1_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : PC0 PC1 HC05_EN_Pin */
-  GPIO_InitStruct.Pin = GPIO_PIN_0|GPIO_PIN_1|HC05_EN_Pin;
+  /*Configure GPIO pins : PC0 PC1 */
+  GPIO_InitStruct.Pin = GPIO_PIN_0|GPIO_PIN_1;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
@@ -636,6 +641,13 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : HC05_EN_Pin */
+  GPIO_InitStruct.Pin = HC05_EN_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_PULLDOWN;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(HC05_EN_GPIO_Port, &GPIO_InitStruct);
 
 /* USER CODE BEGIN MX_GPIO_Init_2 */
   GPIO_InitStruct.Pin = GPIO_PIN_7;
