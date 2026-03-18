@@ -29,6 +29,7 @@
 /* USER CODE BEGIN PTD */
 #define TEST_MOTORS 1
 #define CONFIGURE_HC05 0// 1 = AT mode, 0 = Data mode
+#define START_BYTE 0xAA
 #define BUF_LEN 12 //  length of command buffer, set at 12 so that it can hold 3 sets of commands at once
 #define CMD_LEN 4 /* length of a command from the remote.
 					--- FORMAT in BYTES ---
@@ -83,9 +84,12 @@ uint8_t echo_measured = 0; // flag for determining if distance sensing done
 float distance_cm = 0;
 uint32_t last_dist_time = 0;
 volatile uint8_t rx_byte = 0;
-volatile uint8_t cmd_buffer [BUF_LEN];
-volatile uint8_t cmd_idx = 0; // incremented in ISR
-volatile uint8_t process_idx = 0;  // main loop processes from this idx
+volatile uint8_t rx_state = 0;
+volatile uint8_t rx_data[4];
+volatile uint8_t rx_count = 0;
+
+volatile uint8_t new_cmd_ready = 0;
+uint8_t cmd_copy[4];
 
 void triggerDistanceSensing(){
     HAL_GPIO_WritePin(TRIG_GPIO_Port, TRIG_Pin, GPIO_PIN_SET);
@@ -132,39 +136,6 @@ void driveRight(int speed){
 }
 
 
-void processCommand(uint8_t start_idx){
-	// call drive left and drive right
-	uint8_t idx = start_idx;
-
-
-
-	uint8_t raw_data [CMD_LEN];
-
-	for (uint8_t i = 0; i < CMD_LEN;  i++){
-		raw_data[i] = cmd_buffer[(idx % BUF_LEN)];
-		idx ++;
-
-	}
-
-	uint8_t left_dir = raw_data[0];
-	int left_speed = (int)raw_data[1];
-	uint8_t right_dir = raw_data[2];
-	int right_speed = (int)raw_data[3];
-
-	int scaled_left = (left_speed * 1999) / 255;
-	int scaled_right = (right_speed * 1999) / 255;
-
-
-	scaled_left = (left_dir == 1 ? scaled_left : - scaled_left);
-	scaled_right = (right_dir == 1? scaled_right: - scaled_right);
-
-	printf("Left: %d\n\r", scaled_left);
-	printf("Right: %d\n\r", scaled_right);
-
-	driveLeft(scaled_left);
-	driveRight(scaled_right);
-
-}
 
 
 
@@ -181,12 +152,20 @@ void configureHC05(){
 	memset(resp, 0, sizeof(resp));
 	HAL_Delay(500);
 
-	char cmd_pw[] = "AT+PSWD=\"1234\"\r\n";
+	char cmd_pw[] = "AT+PSWD=\"0902\"\r\n";
 	HAL_UART_Transmit(&huart1, (uint8_t*)cmd_pw, strlen(cmd_pw), 1000);
 	HAL_UART_Receive(&huart1, (uint8_t*)resp, sizeof(resp)-1, 500);
 	printf("Password Response: %s\r\n", resp); // Print the "OK"
 	HAL_Delay(500);
 	memset(resp, 0, sizeof(resp));
+
+	char cmd_addr[] = "AT+ADDR?\r\n";
+	HAL_UART_Transmit(&huart1, (uint8_t*)cmd_addr, strlen(cmd_addr), HAL_MAX_DELAY);
+	HAL_UART_Receive(&huart1, (uint8_t*)resp, sizeof(resp)-1, 500);
+	printf("Address Response: %s\r\n", resp); // Print the "OK"
+	HAL_Delay(500);
+	memset(resp, 0, sizeof(resp));
+
 
 	// set data mode baud rate = 9600
 	char cmd4[] = "AT+UART=9600,0,0\r\n";
@@ -286,55 +265,40 @@ int main(void)
 
 
 
-	  while(0){
-		  // move forward but turn left
-		  driveLeft(400);     // slower
-		  driveRight(1000);   // faster
-		  HAL_Delay(3000);
-
-		  // stop
-		  driveLeft(0);
-		  driveRight(0);
-		  HAL_Delay(2000);
-	  }
 
 
-	  while(0){
-	      HAL_Delay(500);
-	      printf("cmd_idx = %d\n", cmd_idx);
-	  }
+
 	  uint8_t idx_diff = 0;
 
 	  //HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
 
 
-	  // if there is a command ready to be processed
-	  if (cmd_idx < process_idx){
-		  idx_diff = (BUF_LEN - process_idx) + cmd_idx;
+	  if(new_cmd_ready){
+	         new_cmd_ready = 0;
 
-	  } else if (cmd_idx > process_idx){
-		  idx_diff = cmd_idx - process_idx;
-	  }
+	         uint8_t left_dir  = cmd_copy[0];
+	         uint8_t left_speed = cmd_copy[1];
+	         uint8_t right_dir  = cmd_copy[2];
+	         uint8_t right_speed = cmd_copy[3];
 
+	         // safety check
+	         if(left_dir > 1 || right_dir > 1){
+	             continue; // discard bad packet
+	         }
 
-	  uint8_t safety = 0;
-	  while (idx_diff >= CMD_LEN && safety < 10){
-	      processCommand(process_idx);
+	         // scale to motor range
+	         int scaled_left  = ((int)left_speed * 1999) / 255;
+	         int scaled_right = ((int)right_speed * 1999) / 255;
 
-	      process_idx += CMD_LEN;
-	      if (process_idx >= BUF_LEN)
-	          process_idx %= BUF_LEN;
+	         // apply direction
+	         scaled_left  = (left_dir  ? scaled_left  : -scaled_left);
+	         scaled_right = (right_dir ? scaled_right : -scaled_right);
 
-	      // recompute idx_diff after consuming data
-	      if (cmd_idx >= process_idx){
-	          idx_diff = cmd_idx - process_idx;
-	      } else {
-	          idx_diff = (BUF_LEN - process_idx) + cmd_idx;
-	      }
+	         printf("L:%d R:%d\r\n", scaled_left, scaled_right);
 
-	      safety++;
-
-	  }
+	         driveLeft(scaled_left);
+	         driveRight(scaled_right);
+	     }
 #if 0
 
 	  // trigger distance sensor every 500 ms
@@ -684,14 +648,40 @@ int __io_putchar(int ch)
   return ch;
 }
 
-void HAL_UART_RxCpltCallback( UART_HandleTypeDef *huart){
-	if(huart->Instance == USART1){
-		cmd_buffer[cmd_idx++] = rx_byte;
-		if (cmd_idx == BUF_LEN) cmd_idx = 0; // wrap around
-		//HAL_UART_Transmit(&huart2, (uint8_t *) &rx_byte, 1, 10);
-		HAL_UART_Receive_IT(&huart1, (uint8_t *) &rx_byte, 1);
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart){
+    if(huart->Instance == USART1){
 
-	}
+        uint8_t byte = rx_byte;
+
+        switch(rx_state){
+
+            case 0: // waiting for start byte
+                if(byte == START_BYTE){
+                    rx_state = 1;
+                    rx_count = 0;
+                }
+                break;
+
+            case 1: // receiving 4 bytes
+                rx_data[rx_count++] = byte;
+
+                if(rx_count >= 4){
+                    rx_state = 0;
+
+                    for(int i = 0; i < 4; i++){
+                        cmd_copy[i] = rx_data[i];
+                    }
+
+                    new_cmd_ready = 1;
+
+
+                }
+                break;
+        }
+
+        // restart interrupt
+        HAL_UART_Receive_IT(&huart1, (uint8_t*)&rx_byte, 1);
+    }
 }
 void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef *htim){
     if (htim->Instance == TIM2 && htim->Channel == HAL_TIM_ACTIVE_CHANNEL_1) {
