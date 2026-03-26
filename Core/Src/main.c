@@ -294,12 +294,12 @@ int main(void)
 	         scaled_left  = (left_dir  ? scaled_left  : -scaled_left);
 	         scaled_right = (right_dir ? scaled_right : -scaled_right);
 
-	         printf("L:%d R:%d\r\n", scaled_left, scaled_right);
+	         //printf("L:%d R:%d\r\n", scaled_left, scaled_right);
 
 	         driveLeft(scaled_left);
 	         driveRight(scaled_right);
 	     }
-#if 0
+#if 1
 
 	  // trigger distance sensor every 500 ms
 	  if (HAL_GetTick() - last_dist_time >= 500){
@@ -650,36 +650,30 @@ int __io_putchar(int ch)
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart){
     if(huart->Instance == USART1){
-
         uint8_t byte = rx_byte;
 
-        switch(rx_state){
-
-            case 0: // waiting for start byte
-                if(byte == START_BYTE){
-                    rx_state = 1;
-                    rx_count = 0;
-                }
-                break;
-
-            case 1: // receiving 4 bytes
-                rx_data[rx_count++] = byte;
-
-                if(rx_count >= 4){
-                    rx_state = 0;
-
-                    for(int i = 0; i < 4; i++){
-                        cmd_copy[i] = rx_data[i];
-                    }
-
-                    new_cmd_ready = 1;
-
-
-                }
-                break;
+        // If we see a START_BYTE, reset
+        if(byte == START_BYTE){
+            rx_count = 0;
+            // Go to the next interrupt immediately to get the first actual data byte
+            HAL_UART_Receive_IT(&huart1, (uint8_t*)&rx_byte, 1);
+            return;
         }
+        // for headlight toggle, if byte == some # then toggle then return
 
-        // restart interrupt
+        if (rx_count < 4) {
+                    rx_data[rx_count++] = byte;
+
+                    if (rx_count == 4) {
+                        for (int i = 0; i < 4; i++) {
+                            cmd_copy[i] = rx_data[i];
+                        }
+                        new_cmd_ready = 1;
+                        rx_count = 99;
+                    }
+                }
+
+
         HAL_UART_Receive_IT(&huart1, (uint8_t*)&rx_byte, 1);
     }
 }
