@@ -31,6 +31,8 @@
 #define TEST_MOTORS 1
 #define CONFIGURE_HC05 0// 1 = AT mode, 0 = Data mode
 #define START_BYTE 0xAA
+#define TOGGLE_LED 0xCC
+
 #define BUF_LEN 12 //  length of command buffer, set at 12 so that it can hold 3 sets of commands at once
 #define CMD_LEN 4 /* length of a command from the remote.
 					--- FORMAT in BYTES ---
@@ -256,6 +258,8 @@ int main(void)
   HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
   HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_2);
   HAL_TIM_IC_Start_IT(&htim2, TIM_CHANNEL_1);
+  HAL_GPIO_WritePin(HEADLIGHTS_GPIO_Port, HEADLIGHTS_Pin, GPIO_PIN_SET);  // set LED HIGH
+
   tm1637_init(&seg);
 
   /* USER CODE END 2 */
@@ -601,7 +605,7 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_0|GPIO_PIN_1|HC05_EN_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_0|GPIO_PIN_1|HEADLIGHTS_Pin|HC05_EN_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOA, TRIG_Pin|LD2_Pin, GPIO_PIN_RESET);
@@ -618,8 +622,8 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(B1_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : PC0 PC1 */
-  GPIO_InitStruct.Pin = GPIO_PIN_0|GPIO_PIN_1;
+  /*Configure GPIO pins : PC0 PC1 HEADLIGHTS_Pin */
+  GPIO_InitStruct.Pin = GPIO_PIN_0|GPIO_PIN_1|HEADLIGHTS_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
@@ -678,22 +682,22 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart){
         if(byte == START_BYTE){
             rx_count = 0;
             // Go to the next interrupt immediately to get the first actual data byte
-            HAL_UART_Receive_IT(&huart1, (uint8_t*)&rx_byte, 1);
-            return;
-        }
-        // for headlight toggle, if byte == some # then toggle then return
+        } else if (byte == TOGGLE_LED){
+        	//HAL_GPIO_TogglePin(HEADLIGHTS_GPIO_Port, HEADLIGHTS_Pin);
+            HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
+        	printf("toggle\r\n");
 
-        if (rx_count < 4) {
-                    rx_data[rx_count++] = byte;
+        } else if (rx_count < 4) {
+			rx_data[rx_count++] = byte;
 
-                    if (rx_count == 4) {
-                        for (int i = 0; i < 4; i++) {
-                            cmd_copy[i] = rx_data[i];
-                        }
-                        new_cmd_ready = 1;
-                        rx_count = 99;
-                    }
-                }
+			if (rx_count == 4) {
+				for (int i = 0; i < 4; i++) {
+					cmd_copy[i] = rx_data[i];
+				}
+				new_cmd_ready = 1;
+				rx_count = 99;
+			}
+		}
 
 
         HAL_UART_Receive_IT(&huart1, (uint8_t*)&rx_byte, 1);

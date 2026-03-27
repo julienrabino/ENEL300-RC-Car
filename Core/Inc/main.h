@@ -61,6 +61,8 @@ void Error_Handler(void);
 /* Private defines -----------------------------------------------------------*/
 #define B1_Pin GPIO_PIN_13
 #define B1_GPIO_Port GPIOC
+#define HEADLIGHTS_Pin GPIO_PIN_3
+#define HEADLIGHTS_GPIO_Port GPIOC
 #define ECHO_Pin GPIO_PIN_0
 #define ECHO_GPIO_Port GPIOA
 #define TRIG_Pin GPIO_PIN_1
