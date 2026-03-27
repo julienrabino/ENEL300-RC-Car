@@ -23,6 +23,7 @@
 /* USER CODE BEGIN Includes */
 #include <string.h>
 #include <stdio.h>
+#include "tm1637.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -90,6 +91,16 @@ volatile uint8_t rx_count = 0;
 
 volatile uint8_t new_cmd_ready = 0;
 uint8_t cmd_copy[4];
+
+
+tm1637_t seg =
+{
+    .seg_cnt  = 4,
+    .gpio_clk = GPIOC,
+    .gpio_dat = GPIOC,
+    .pin_clk  = GPIO_PIN_10,
+    .pin_dat = GPIO_PIN_11,
+};
 
 void triggerDistanceSensing(){
     HAL_GPIO_WritePin(TRIG_GPIO_Port, TRIG_Pin, GPIO_PIN_SET);
@@ -245,6 +256,8 @@ int main(void)
   HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
   HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_2);
   HAL_TIM_IC_Start_IT(&htim2, TIM_CHANNEL_1);
+  tm1637_init(&seg);
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -294,7 +307,7 @@ int main(void)
 	         scaled_left  = (left_dir  ? scaled_left  : -scaled_left);
 	         scaled_right = (right_dir ? scaled_right : -scaled_right);
 
-	         //printf("L:%d R:%d\r\n", scaled_left, scaled_right);
+	         printf("L:%d R:%d\r\n", scaled_left, scaled_right);
 
 	         driveLeft(scaled_left);
 	         driveRight(scaled_right);
@@ -309,9 +322,8 @@ int main(void)
 	  }
 	  if (echo_measured){
 		  echo_measured = 0; // reset flag
-		  distance_cm  = time_diff / 58;
-		  uint32_t distance_mm = (int)(distance_cm * 10);
-		  printf("Distance: %d mm\n\r", distance_mm);
+		  distance_cm  = time_diff / 58.0f;
+		  tm1637_printf(&seg, "%5.1f", distance_cm);
 
 	  }
 
@@ -597,6 +609,9 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOB, LEFT_DIR_Pin|RIGHT_DIR_Pin, GPIO_PIN_RESET);
 
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOC, SEG_CLK_Pin|SEG_DIO_Pin, GPIO_PIN_SET);
+
   /*Configure GPIO pin : B1_Pin */
   GPIO_InitStruct.Pin = B1_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
@@ -630,6 +645,13 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_PULLDOWN;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(HC05_EN_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : SEG_CLK_Pin SEG_DIO_Pin */
+  GPIO_InitStruct.Pin = SEG_CLK_Pin|SEG_DIO_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_OD;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
 /* USER CODE BEGIN MX_GPIO_Init_2 */
   GPIO_InitStruct.Pin = GPIO_PIN_7;
