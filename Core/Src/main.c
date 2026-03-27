@@ -261,6 +261,9 @@ int main(void)
   HAL_GPIO_WritePin(HEADLIGHTS_GPIO_Port, HEADLIGHTS_Pin, GPIO_PIN_SET);  // set LED HIGH
 
   tm1637_init(&seg);
+  tm1637_brightness(&seg,  8);
+  //tm1637_str(&seg, "1234");
+
 
   /* USER CODE END 2 */
 
@@ -652,7 +655,7 @@ static void MX_GPIO_Init(void)
 
   /*Configure GPIO pins : SEG_CLK_Pin SEG_DIO_Pin */
   GPIO_InitStruct.Pin = SEG_CLK_Pin|SEG_DIO_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_OD;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_PULLUP;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
@@ -683,9 +686,9 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart){
             rx_count = 0;
             // Go to the next interrupt immediately to get the first actual data byte
         } else if (byte == TOGGLE_LED){
-        	//HAL_GPIO_TogglePin(HEADLIGHTS_GPIO_Port, HEADLIGHTS_Pin);
-            HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
-        	printf("toggle\r\n");
+        	HAL_GPIO_TogglePin(HEADLIGHTS_GPIO_Port, HEADLIGHTS_Pin);
+            //HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
+        	//printf("toggle\r\n");
 
         } else if (rx_count < 4) {
 			rx_data[rx_count++] = byte;
