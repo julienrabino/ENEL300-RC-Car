@@ -69,10 +69,10 @@ void Error_Handler(void);
 #define TRIG_GPIO_Port GPIOA
 #define LD2_Pin GPIO_PIN_5
 #define LD2_GPIO_Port GPIOA
-#define LEFT_DIR_Pin GPIO_PIN_0
-#define LEFT_DIR_GPIO_Port GPIOB
 #define RIGHT_DIR_Pin GPIO_PIN_1
 #define RIGHT_DIR_GPIO_Port GPIOB
+#define LEFT_DIR_Pin GPIO_PIN_15
+#define LEFT_DIR_GPIO_Port GPIOB
 #define HC05_EN_Pin GPIO_PIN_7
 #define HC05_EN_GPIO_Port GPIOC
 #define LEFT_PWM_Pin GPIO_PIN_8

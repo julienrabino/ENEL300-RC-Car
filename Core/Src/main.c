@@ -115,13 +115,15 @@ void driveLeft(int speed){
 
     if (speed > 0)
     {
-        HAL_GPIO_WritePin(LEFT_DIR_GPIO_Port, LEFT_DIR_Pin, GPIO_PIN_RESET);  // DIR = 0 (forward)
+        HAL_GPIO_WritePin(LEFT_DIR_GPIO_Port, LEFT_DIR_Pin, GPIO_PIN_SET);  // DIR = 1 (forward)
         __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, speed);  // PWM duty
     }
     else if (speed < 0)
     {
-        HAL_GPIO_WritePin(LEFT_DIR_GPIO_Port, LEFT_DIR_Pin, GPIO_PIN_SET);   // DIR = 1 (reverse)
+        HAL_GPIO_WritePin(LEFT_DIR_GPIO_Port, LEFT_DIR_Pin, GPIO_PIN_RESET);   // DIR = 0 (reverse)
+        HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
         __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, -speed);
+
     }
     else
     {
@@ -322,7 +324,7 @@ int main(void)
 #if 1
 
 	  // trigger distance sensor every 500 ms
-	  if (HAL_GetTick() - last_dist_time >= 500){
+	  if (HAL_GetTick() - last_dist_time >= 200){
 		  triggerDistanceSensing();
 		  last_dist_time = HAL_GetTick();
 
@@ -330,7 +332,10 @@ int main(void)
 	  if (echo_measured){
 		  echo_measured = 0; // reset flag
 		  distance_cm  = time_diff / 58.0f;
-		  tm1637_printf(&seg, "%5.1f", distance_cm);
+		  char buffer [15];
+		  sprintf(buffer,  "%4.1f", distance_cm);
+		  printf("%s \r\n",buffer);
+		  tm1637_str(&seg, buffer);
 
 	  }
 
@@ -614,7 +619,7 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(GPIOA, TRIG_Pin|LD2_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, LEFT_DIR_Pin|RIGHT_DIR_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOB, RIGHT_DIR_Pin|LEFT_DIR_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOC, SEG_CLK_Pin|SEG_DIO_Pin, GPIO_PIN_SET);
@@ -639,8 +644,8 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : LEFT_DIR_Pin RIGHT_DIR_Pin */
-  GPIO_InitStruct.Pin = LEFT_DIR_Pin|RIGHT_DIR_Pin;
+  /*Configure GPIO pins : RIGHT_DIR_Pin LEFT_DIR_Pin */
+  GPIO_InitStruct.Pin = RIGHT_DIR_Pin|LEFT_DIR_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
