@@ -116,18 +116,18 @@ void driveLeft(int speed){
     if (speed > 0)
     {
         HAL_GPIO_WritePin(LEFT_DIR_GPIO_Port, LEFT_DIR_Pin, GPIO_PIN_SET);  // DIR = 1 (forward)
-        __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, speed);  // PWM duty
+        __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_3, speed);  // PWM duty
     }
     else if (speed < 0)
     {
         HAL_GPIO_WritePin(LEFT_DIR_GPIO_Port, LEFT_DIR_Pin, GPIO_PIN_RESET);   // DIR = 0 (reverse)
         HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
-        __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, -speed);
+        __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_3, -speed);
 
     }
     else
     {
-        __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, 0);      // brake
+        __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_3, 0);      // brake
     }
 }
 
@@ -137,16 +137,16 @@ void driveRight(int speed){
     if (speed > 0)
     {
         HAL_GPIO_WritePin(RIGHT_DIR_GPIO_Port, RIGHT_DIR_Pin, GPIO_PIN_SET);  // DIR = 1 (forward)
-        __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_2, speed);  // PWM duty
+        __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, speed);  // PWM duty
     }
     else if (speed < 0)
     {
         HAL_GPIO_WritePin(RIGHT_DIR_GPIO_Port, RIGHT_DIR_Pin, GPIO_PIN_RESET);   // DIR = 0 (reverse)
-        __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_2, -speed);
+        __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, -speed);
     }
     else
     {
-        __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_2, 0);      // brake
+        __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_4, 0);      // brake
     }
 }
 
@@ -257,8 +257,8 @@ int main(void)
   MX_USART1_UART_Init();
   MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
-  HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
-  HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_2);
+  HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_3);
+  HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4);
   HAL_TIM_IC_Start_IT(&htim2, TIM_CHANNEL_1);
   HAL_GPIO_WritePin(HEADLIGHTS_GPIO_Port, HEADLIGHTS_Pin, GPIO_PIN_SET);  // set LED HIGH
 
@@ -455,11 +455,11 @@ static void MX_TIM1_Init(void)
   sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
   sConfigOC.OCIdleState = TIM_OCIDLESTATE_RESET;
   sConfigOC.OCNIdleState = TIM_OCNIDLESTATE_RESET;
-  if (HAL_TIM_PWM_ConfigChannel(&htim1, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
+  if (HAL_TIM_PWM_ConfigChannel(&htim1, &sConfigOC, TIM_CHANNEL_3) != HAL_OK)
   {
     Error_Handler();
   }
-  if (HAL_TIM_PWM_ConfigChannel(&htim1, &sConfigOC, TIM_CHANNEL_2) != HAL_OK)
+  if (HAL_TIM_PWM_ConfigChannel(&htim1, &sConfigOC, TIM_CHANNEL_4) != HAL_OK)
   {
     Error_Handler();
   }
