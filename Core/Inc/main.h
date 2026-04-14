@@ -49,6 +49,8 @@ extern "C" {
 
 /* USER CODE END EM */
 
+void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);
+
 /* Exported functions prototypes ---------------------------------------------*/
 void Error_Handler(void);
 
@@ -59,10 +61,6 @@ void Error_Handler(void);
 /* Private defines -----------------------------------------------------------*/
 #define B1_Pin GPIO_PIN_13
 #define B1_GPIO_Port GPIOC
-#define MOT_L_IN1_Pin GPIO_PIN_0
-#define MOT_L_IN1_GPIO_Port GPIOC
-#define MOT_L_IN2_Pin GPIO_PIN_1
-#define MOT_L_IN2_GPIO_Port GPIOC
 #define HEADLIGHTS_Pin GPIO_PIN_3
 #define HEADLIGHTS_GPIO_Port GPIOC
 #define ECHO_Pin GPIO_PIN_0
@@ -77,10 +75,10 @@ void Error_Handler(void);
 #define LEFT_DIR_GPIO_Port GPIOB
 #define HC05_EN_Pin GPIO_PIN_7
 #define HC05_EN_GPIO_Port GPIOC
-#define MOT_R_IN1_Pin GPIO_PIN_8
-#define MOT_R_IN1_GPIO_Port GPIOA
-#define MOT_R_IN2_Pin GPIO_PIN_9
-#define MOT_R_IN2_GPIO_Port GPIOA
+#define LEFT_PWM_Pin GPIO_PIN_8
+#define LEFT_PWM_GPIO_Port GPIOA
+#define RIGHT_PWM_Pin GPIO_PIN_9
+#define RIGHT_PWM_GPIO_Port GPIOA
 #define TCK_Pin GPIO_PIN_14
 #define TCK_GPIO_Port GPIOA
 #define SEG_CLK_Pin GPIO_PIN_10
